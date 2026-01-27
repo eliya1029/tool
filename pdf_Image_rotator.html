@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF/圖片 旋轉工具</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -22,13 +23,34 @@
             padding: 20px;
         }
 
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
         .container {
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
-            max-width: 600px;
-            width: 100%;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .preview-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            flex: 1;
+            min-width: 0;
+            display: none;
+        }
+
+        .preview-container.show {
+            display: block;
         }
 
         h1 {
@@ -36,6 +58,13 @@
             text-align: center;
             margin-bottom: 30px;
             font-size: 28px;
+        }
+
+        h2 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 22px;
         }
 
         .upload-area {
@@ -191,44 +220,81 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .preview-area {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            background: #f8f9fa;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+        }
+
+        .preview-canvas {
+            max-width: 100%;
+            max-height: 600px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        @media (max-width: 968px) {
+            .main-container {
+                flex-direction: column;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>📄 PDF/圖片 旋轉工具</h1>
-        
-        <div class="upload-area" id="uploadArea">
-            <div class="upload-icon">📁</div>
-            <div class="upload-text">點擊或拖曳 PDF/圖片 檔案至此處</div>
-            <input type="file" id="fileInput" accept=".pdf,image/*">
+    <div class="main-container">
+        <div class="container">
+            <h1>📄 PDF/圖片 旋轉工具</h1>
+            
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">點擊或拖曳 PDF/圖片 檔案至此處</div>
+                <input type="file" id="fileInput" accept=".pdf,image/*">
+            </div>
+
+            <div class="file-info" id="fileInfo">
+                <div class="file-name" id="fileName"></div>
+            </div>
+
+            <label for="rotationSelect">選擇旋轉角度：</label>
+            <select id="rotationSelect">
+                <option value="90" selected>向右旋轉 90 度</option>
+                <option value="180">向右旋轉 180 度</option>
+                <option value="270">向右旋轉 270 度</option>
+                <option value="-90">向左旋轉 90 度</option>
+                <option value="-180">向左旋轉 180 度</option>
+                <option value="-270">向左旋轉 270 度</option>
+            </select>
+
+            <div class="spinner" id="spinner"></div>
+            <div class="status" id="status"></div>
+
+            <button class="btn btn-process" id="processBtn" disabled>旋轉並下載</button>
         </div>
 
-        <div class="file-info" id="fileInfo">
-            <div class="file-name" id="fileName"></div>
+        <div class="preview-container" id="previewContainer">
+            <h2>🔍 預覽</h2>
+            <div class="preview-area">
+                <canvas id="previewCanvas" class="preview-canvas"></canvas>
+            </div>
         </div>
-
-        <label for="rotationSelect">選擇旋轉角度：</label>
-        <select id="rotationSelect">
-            <option value="90" selected>向右旋轉 90 度</option>
-            <option value="180">向右旋轉 180 度</option>
-            <option value="270">向右旋轉 270 度</option>
-            <option value="-90">向左旋轉 90 度</option>
-            <option value="-180">向左旋轉 180 度</option>
-            <option value="-270">向左旋轉 270 度</option>
-        </select>
-
-        <div class="spinner" id="spinner"></div>
-        <div class="status" id="status"></div>
-
-        <button class="btn btn-process" id="processBtn" disabled>旋轉並下載</button>
     </div>
 
     <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         const { PDFDocument, degrees } = PDFLib;
         
         let uploadedFile = null;
         let originalFileName = '';
         let fileType = '';
+        let originalImage = null;
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
@@ -238,6 +304,8 @@
         const status = document.getElementById('status');
         const spinner = document.getElementById('spinner');
         const rotationSelect = document.getElementById('rotationSelect');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewCanvas = document.getElementById('previewCanvas');
 
         uploadArea.addEventListener('click', () => fileInput.click());
 
@@ -270,21 +338,111 @@
             }
         });
 
-        function handleFile(file) {
+        rotationSelect.addEventListener('change', () => {
+            if (uploadedFile) {
+                updatePreview();
+            }
+        });
+
+        async function handleFile(file) {
             uploadedFile = file;
             originalFileName = file.name.replace(/\.[^/.]+$/, '');
-            const extension = file.name.split('.').pop();
             
             if (file.type === 'application/pdf') {
                 fileType = 'pdf';
+                await loadPDFPreview(file);
             } else if (file.type.startsWith('image/')) {
                 fileType = 'image';
+                await loadImagePreview(file);
             }
             
             fileName.textContent = `已選擇：${file.name} (${fileType === 'pdf' ? 'PDF' : '圖片'})`;
             fileInfo.classList.add('show');
             processBtn.disabled = false;
             status.classList.remove('show');
+            previewContainer.classList.add('show');
+        }
+
+        async function loadPDFPreview(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const page = await pdf.getPage(1);
+            
+            const scale = 1.5;
+            const viewport = page.getViewport({ scale });
+            
+            const ctx = previewCanvas.getContext('2d');
+            previewCanvas.height = viewport.height;
+            previewCanvas.width = viewport.width;
+            
+            await page.render({
+                canvasContext: ctx,
+                viewport: viewport
+            }).promise;
+
+            originalImage = previewCanvas.toDataURL();
+            updatePreview();
+        }
+
+        async function loadImagePreview(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img;
+                    updatePreview();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function updatePreview() {
+            const rotation = parseInt(rotationSelect.value);
+            const ctx = previewCanvas.getContext('2d');
+            
+            if (fileType === 'pdf') {
+                const tempImg = new Image();
+                tempImg.onload = () => {
+                    const angle = rotation;
+                    const absAngle = Math.abs(angle) % 360;
+                    
+                    if (absAngle === 90 || absAngle === 270) {
+                        previewCanvas.width = tempImg.height;
+                        previewCanvas.height = tempImg.width;
+                    } else {
+                        previewCanvas.width = tempImg.width;
+                        previewCanvas.height = tempImg.height;
+                    }
+                    
+                    ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+                    ctx.save();
+                    ctx.translate(previewCanvas.width / 2, previewCanvas.height / 2);
+                    ctx.rotate((angle * Math.PI) / 180);
+                    ctx.drawImage(tempImg, -tempImg.width / 2, -tempImg.height / 2);
+                    ctx.restore();
+                };
+                tempImg.src = originalImage;
+            } else {
+                const img = originalImage;
+                const angle = rotation;
+                const absAngle = Math.abs(angle) % 360;
+                
+                if (absAngle === 90 || absAngle === 270) {
+                    previewCanvas.width = img.height;
+                    previewCanvas.height = img.width;
+                } else {
+                    previewCanvas.width = img.width;
+                    previewCanvas.height = img.height;
+                }
+                
+                ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+                ctx.save();
+                ctx.translate(previewCanvas.width / 2, previewCanvas.height / 2);
+                ctx.rotate((angle * Math.PI) / 180);
+                ctx.drawImage(img, -img.width / 2, -img.height / 2);
+                ctx.restore();
+            }
         }
 
         processBtn.addEventListener('click', async () => {
@@ -350,20 +508,9 @@
                 processBtn.disabled = true;
 
                 const rotation = parseInt(rotationSelect.value);
-                const img = new Image();
+                const img = originalImage;
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
-
-                await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        img.onload = resolve;
-                        img.onerror = reject;
-                        img.src = e.target.result;
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(uploadedFile);
-                });
 
                 const angle = rotation;
                 const absAngle = Math.abs(angle) % 360;
