@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF/圖片 旋轉工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 25px;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+
+        .upload-area.dragover {
+            background: #e8ebff;
+            border-color: #5a67d8;
+        }
+
+        .upload-icon {
+            font-size: 50px;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .file-info {
+            background: #f0f4ff;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .file-name {
+            color: #333;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            margin-bottom: 25px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+        }
+
+        .btn-process {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-process:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-process:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .status {
+            text-align: center;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status.processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+            display: none;
+        }
+
+        .spinner.show {
+            display: block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 PDF/圖片 旋轉工具</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">點擊或拖曳 PDF/圖片 檔案至此處</div>
+            <input type="file" id="fileInput" accept=".pdf,image/*">
+        </div>
+
+        <div class="file-info" id="fileInfo">
+            <div class="file-name" id="fileName"></div>
+        </div>
+
+        <label for="rotationSelect">選擇旋轉角度：</label>
+        <select id="rotationSelect">
+            <option value="90" selected>向右旋轉 90 度</option>
+            <option value="180">向右旋轉 180 度</option>
+            <option value="270">向右旋轉 270 度</option>
+            <option value="-90">向左旋轉 90 度</option>
+            <option value="-180">向左旋轉 180 度</option>
+            <option value="-270">向左旋轉 270 度</option>
+        </select>
+
+        <div class="spinner" id="spinner"></div>
+        <div class="status" id="status"></div>
+
+        <button class="btn btn-process" id="processBtn" disabled>旋轉並下載</button>
+    </div>
+
+    <script>
+        const { PDFDocument, degrees } = PDFLib;
+        
+        let uploadedFile = null;
+        let originalFileName = '';
+        let fileType = '';
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const processBtn = document.getElementById('processBtn');
+        const status = document.getElementById('status');
+        const spinner = document.getElementById('spinner');
+        const rotationSelect = document.getElementById('rotationSelect');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
+                    handleFile(file);
+                } else {
+                    showStatus('請上傳 PDF 或圖片檔案', 'error');
+                }
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            uploadedFile = file;
+            originalFileName = file.name.replace(/\.[^/.]+$/, '');
+            const extension = file.name.split('.').pop();
+            
+            if (file.type === 'application/pdf') {
+                fileType = 'pdf';
+            } else if (file.type.startsWith('image/')) {
+                fileType = 'image';
+            }
+            
+            fileName.textContent = `已選擇：${file.name} (${fileType === 'pdf' ? 'PDF' : '圖片'})`;
+            fileInfo.classList.add('show');
+            processBtn.disabled = false;
+            status.classList.remove('show');
+        }
+
+        processBtn.addEventListener('click', async () => {
+            if (!uploadedFile) return;
+
+            if (fileType === 'pdf') {
+                await processPDF();
+            } else if (fileType === 'image') {
+                await processImage();
+            }
+        });
+
+        async function processPDF() {
+            try {
+                showStatus('處理中，請稍候...', 'processing');
+                spinner.classList.add('show');
+                processBtn.disabled = true;
+
+                const arrayBuffer = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsArrayBuffer(uploadedFile);
+                });
+
+                const pdfDoc = await PDFDocument.load(arrayBuffer);
+                const pages = pdfDoc.getPages();
+                const rotation = parseInt(rotationSelect.value);
+
+                pages.forEach(page => {
+                    const currentRotation = page.getRotation().angle;
+                    page.setRotation(degrees(currentRotation + rotation));
+                });
+
+                const rotatedPdfBytes = await pdfDoc.save();
+
+                const blob = new Blob([rotatedPdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${originalFileName}_旋轉.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                spinner.classList.remove('show');
+                showStatus('✅ PDF 已旋轉並下載完成！', 'success');
+                processBtn.disabled = false;
+
+            } catch (error) {
+                console.error('詳細錯誤:', error);
+                spinner.classList.remove('show');
+                showStatus('錯誤: ' + error.message, 'error');
+                processBtn.disabled = false;
+            }
+        }
+
+        async function processImage() {
+            try {
+                showStatus('處理中，請稍候...', 'processing');
+                spinner.classList.add('show');
+                processBtn.disabled = true;
+
+                const rotation = parseInt(rotationSelect.value);
+                const img = new Image();
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(uploadedFile);
+                });
+
+                const angle = rotation;
+                const absAngle = Math.abs(angle) % 360;
+                
+                if (absAngle === 90 || absAngle === 270) {
+                    canvas.width = img.height;
+                    canvas.height = img.width;
+                } else {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                }
+
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate((angle * Math.PI) / 180);
+                ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const extension = uploadedFile.name.split('.').pop();
+                    a.download = `${originalFileName}_旋轉.${extension}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    spinner.classList.remove('show');
+                    showStatus('✅ 圖片已旋轉並下載完成！', 'success');
+                    processBtn.disabled = false;
+                }, uploadedFile.type);
+
+            } catch (error) {
+                console.error('詳細錯誤:', error);
+                spinner.classList.remove('show');
+                showStatus('錯誤: ' + error.message, 'error');
+                processBtn.disabled = false;
+            }
+        }
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = 'status show ' + type;
+        }
+    </script>
+</body>
+</html>
