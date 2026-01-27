@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手機畫面展示</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 使用 Inter 字體 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* 模擬 iPhone 外框 */
+        .iphone-frame {
+            position: relative;
+            width: 320px; /* 模擬手機寬度 */
+            height: 640px; /* 模擬手機高度 */
+            background-color: #1a1a1a;
+            border-radius: 40px;
+            box-shadow: 0 0 0 10px #333,
+                        0 0 0 12px #aaa,
+                        0 50px 100px rgba(0, 0, 0, 0.5);
+            padding: 10px;
+        }
+
+        /* 模擬手機螢幕 */
+        .iphone-screen {
+            width: 100%;
+            height: 100%;
+            background-color: #fff;
+            border-radius: 30px;
+            overflow: hidden; /* 確保圖片不超出邊界 */
+            position: relative;
+        }
+
+        /* 模擬劉海（Notch） */
+        .iphone-notch {
+            position: absolute;
+            top: 0px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 25px;
+            background: #1a1a1a;
+            border-radius: 0 0 15px 15px;
+            z-index: 10;
+        }
+
+        /* 模擬電源鍵 */
+        .iphone-button-side {
+            position: absolute;
+            width: 3px;
+            height: 30px;
+            background: #333;
+            border-radius: 0 3px 3px 0;
+            right: -13px;
+            top: 100px;
+        }
+
+        /* 模擬音量鍵 */
+        .iphone-button-volume {
+            position: absolute;
+            width: 3px;
+            height: 40px;
+            background: #333;
+            border-radius: 3px 0 0 3px;
+            left: -13px;
+            top: 150px;
+        }
+        .iphone-button-mute {
+             position: absolute;
+            width: 3px;
+            height: 20px;
+            background: #333;
+            border-radius: 3px 0 0 3px;
+            left: -13px;
+            top: 90px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="iphone-frame">
+        <!-- 手機外框裝飾 (劉海和按鍵) -->
+        <div class="iphone-notch"></div>
+        <div class="iphone-button-side"></div>
+        <div class="iphone-button-volume"></div>
+        <div class="iphone-button-mute"></div>
+
+        <!-- 螢幕內容 -->
+        <div class="iphone-screen">
+            <!-- 貼上您的手機畫面圖檔 (確保使用正確的檔案 ID) -->
+            <img 
+                src="手機畫面.jpg" 
+                alt="用戶上傳的手機畫面" 
+                class="w-full h-full object-cover"
+                onerror="this.onerror=null; this.src='https://placehold.co/320x640/EF4444/FFFFFF?text=圖片載入失敗，請檢查檔案名稱';"
+            >
+        </div>
+    </div>
+
+</body>
+</html>
