@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手機畫面產生器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        /* 拖拉區域樣式 */
+        .drop-zone {
+            border: 3px dashed #cbd5e0;
+            background-color: #f7fafc;
+            transition: all 0.3s ease;
+        }
+        .drop-zone.dragover {
+            border-color: #667eea;
+            background-color: #eef2ff;
+            transform: scale(1.02);
+        }
+        
+        /* 模擬 iPhone 外框 */
+        .iphone-frame {
+            position: relative;
+            width: 320px;
+            height: 640px;
+            background-color: #1a1a1a;
+            border-radius: 40px;
+            box-shadow: 0 0 0 10px #333,
+                        0 0 0 12px #aaa,
+                        0 50px 100px rgba(0, 0, 0, 0.5);
+            padding: 10px;
+        }
+        .iphone-screen {
+            width: 100%;
+            height: 100%;
+            background-color: #fff;
+            border-radius: 30px;
+            overflow: hidden;
+            position: relative;
+        }
+        .iphone-notch {
+            position: absolute;
+            top: 0px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 25px;
+            background: #1a1a1a;
+            border-radius: 0 0 15px 15px;
+            z-index: 10;
+        }
+        .iphone-button-side {
+            position: absolute;
+            width: 3px;
+            height: 30px;
+            background: #333;
+            border-radius: 0 3px 3px 0;
+            right: -13px;
+            top: 100px;
+        }
+        .iphone-button-volume {
+            position: absolute;
+            width: 3px;
+            height: 40px;
+            background: #333;
+            border-radius: 3px 0 0 3px;
+            left: -13px;
+            top: 150px;
+        }
+        .iphone-button-mute {
+            position: absolute;
+            width: 3px;
+            height: 20px;
+            background: #333;
+            border-radius: 3px 0 0 3px;
+            left: -13px;
+            top: 90px;
+        }
+        
+        /* 隱藏預覽區域 */
+        #preview-section {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto max-w-4xl">
+        <h1 class="text-4xl font-bold text-white text-center mb-8">📱 手機畫面產生器</h1>
+        
+        <div class="grid md:grid-cols-2 gap-8">
+            <!-- 左側：上傳區域 -->
+            <div class="bg-white rounded-2xl shadow-2xl p-8">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-800">上傳您的圖片</h2>
+                
+                <!-- 拖拉上傳區域 -->
+                <div id="dropZone" class="drop-zone rounded-xl p-12 text-center cursor-pointer mb-6">
+                    <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <p class="text-lg font-medium text-gray-700 mb-2">拖拉圖片到這裡</p>
+                    <p class="text-sm text-gray-500 mb-4">或</p>
+                    <label for="fileInput" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg cursor-pointer inline-block transition duration-200">
+                        選擇檔案
+                    </label>
+                    <input type="file" id="fileInput" accept="image/*" class="hidden">
+                    <p class="text-xs text-gray-400 mt-4">支援 JPG、PNG、GIF 等格式</p>
+                </div>
+                
+                <!-- 產生按鈕 -->
+                <button id="generateBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-4 px-6 rounded-xl transition duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" disabled>
+                    🎨 產生手機畫面
+                </button>
+                
+                <p id="fileName" class="text-sm text-gray-500 mt-4 text-center"></p>
+            </div>
+            
+            <!-- 右側：預覽區域 -->
+            <div id="preview-section" class="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center justify-center">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-800">預覽</h2>
+                <div id="phonePreview" class="iphone-frame">
+                    <div class="iphone-notch"></div>
+                    <div class="iphone-button-side"></div>
+                    <div class="iphone-button-volume"></div>
+                    <div class="iphone-button-mute"></div>
+                    <div class="iphone-screen">
+                        <img id="previewImage" src="" alt="預覽" class="w-full h-full object-cover">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隱藏的 Canvas 用於生成最終圖片 -->
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const fileName = document.getElementById('fileName');
+        const previewSection = document.getElementById('preview-section');
+        const previewImage = document.getElementById('previewImage');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let uploadedImage = null;
+
+        // 點擊上傳區域觸發檔案選擇
+        dropZone.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'LABEL') {
+                fileInput.click();
+            }
+        });
+
+        // 檔案選擇處理
+        fileInput.addEventListener('change', (e) => {
+            handleFile(e.target.files[0]);
+        });
+
+        // 拖拉相關事件
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('dragover');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('dragover');
+            });
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFile(files[0]);
+        });
+
+        // 處理上傳的檔案
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                alert('請上傳圖片檔案！');
+                return;
+            }
+
+            fileName.textContent = `已選擇：${file.name}`;
+            generateBtn.disabled = false;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                uploadedImage = new Image();
+                uploadedImage.onload = () => {
+                    previewImage.src = e.target.result;
+                    previewSection.style.display = 'block';
+                };
+                uploadedImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 產生手機畫面按鈕
+        generateBtn.addEventListener('click', () => {
+            if (!uploadedImage) {
+                alert('請先上傳圖片！');
+                return;
+            }
+
+            generatePhoneMockup();
+        });
+
+        function generatePhoneMockup() {
+            // 設定 Canvas 尺寸（包含外框）
+            const frameWidth = 360;  // 包含外框和陰影的總寬度
+            const frameHeight = 720; // 包含外框和陰影的總高度
+            
+            canvas.width = frameWidth;
+            canvas.height = frameHeight;
+
+            // 繪製背景（透明或白色）
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, frameWidth, frameHeight);
+
+            // 計算手機框架位置（居中）
+            const phoneX = 20;
+            const phoneY = 40;
+            const phoneWidth = 320;
+            const phoneHeight = 640;
+
+            // 繪製陰影
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 30;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 20;
+
+            // 繪製外框（最外層灰色邊框）
+            ctx.fillStyle = '#aaa';
+            roundRect(ctx, phoneX - 2, phoneY - 2, phoneWidth + 4, phoneHeight + 4, 42);
+            ctx.fill();
+
+            // *** 重要：清除陰影設定 ***
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+
+            // 繪製中層邊框
+            ctx.fillStyle = '#333';
+            roundRect(ctx, phoneX, phoneY, phoneWidth, phoneHeight, 40);
+            ctx.fill();
+
+            // 繪製手機主體
+            ctx.fillStyle = '#1a1a1a';
+            roundRect(ctx, phoneX + 10, phoneY + 10, phoneWidth - 20, phoneHeight - 20, 30);
+            ctx.fill();
+
+            // 繪製螢幕（白色背景）
+            ctx.fillStyle = '#fff';
+            roundRect(ctx, phoneX + 10, phoneY + 10, phoneWidth - 20, phoneHeight - 20, 30);
+            ctx.fill();
+
+            // 繪製用戶圖片（在螢幕內）
+            ctx.save();
+            ctx.beginPath();
+            roundRect(ctx, phoneX + 10, phoneY + 10, phoneWidth - 20, phoneHeight - 20, 30);
+            ctx.clip();
+            
+            const screenWidth = phoneWidth - 20;
+            const screenHeight = phoneHeight - 20;
+            const imgRatio = uploadedImage.width / uploadedImage.height;
+            const screenRatio = screenWidth / screenHeight;
+            
+            let drawWidth, drawHeight, drawX, drawY;
+            
+            if (imgRatio > screenRatio) {
+                drawHeight = screenHeight;
+                drawWidth = drawHeight * imgRatio;
+                drawX = phoneX + 10 - (drawWidth - screenWidth) / 2;
+                drawY = phoneY + 10;
+            } else {
+                drawWidth = screenWidth;
+                drawHeight = drawWidth / imgRatio;
+                drawX = phoneX + 10;
+                drawY = phoneY + 10 - (drawHeight - screenHeight) / 2;
+            }
+            
+            ctx.drawImage(uploadedImage, drawX, drawY, drawWidth, drawHeight);
+            ctx.restore();
+
+            // 繪製劉海
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.moveTo(phoneX + phoneWidth/2 - 60, phoneY + 10);
+            ctx.lineTo(phoneX + phoneWidth/2 + 60, phoneY + 10);
+            ctx.lineTo(phoneX + phoneWidth/2 + 60, phoneY + 35);
+            ctx.quadraticCurveTo(phoneX + phoneWidth/2 + 60, phoneY + 40, phoneX + phoneWidth/2 + 55, phoneY + 40);
+            ctx.lineTo(phoneX + phoneWidth/2 - 55, phoneY + 40);
+            ctx.quadraticCurveTo(phoneX + phoneWidth/2 - 60, phoneY + 40, phoneX + phoneWidth/2 - 60, phoneY + 35);
+            ctx.closePath();
+            ctx.fill();
+
+            // 繪製側邊按鈕
+            ctx.fillStyle = '#333';
+            // 電源鍵（右側）- 緊貼外框
+            ctx.fillRect(phoneX + phoneWidth, phoneY + 100, 3, 30);
+            // 音量鍵（左側）- 緊貼外框
+            ctx.fillRect(phoneX - 3, phoneY + 150, 3, 40);
+            // 靜音鍵（左側）- 緊貼外框
+            ctx.fillRect(phoneX - 3, phoneY + 90, 3, 20);
+
+            // 自動下載圖片
+            downloadImage();
+        }
+
+        // 繪製圓角矩形的輔助函數
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        // 下載圖片
+        function downloadImage() {
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const timestamp = new Date().getTime();
+                link.download = `phone-mockup-${timestamp}.png`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+                
+                // 顯示成功訊息
+                alert('✅ 手機畫面已成功產生並下載！');
+            }, 'image/png');
+        }
+    </script>
+</body>
+</html>
