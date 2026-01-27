@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel檔 轉 匯入檔(CSV UTF-8)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: block;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+            /* 初始隱藏 */
+            text-align: center;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Excel檔 轉成 匯入檔(CSV UTF-8)</h1>
+
+        <input type="file" id="excelFile" accept=".xlsx, .xls">
+
+        <p>
+            <label for="sheetNameInput">指定轉換工作表名稱 (若空白則轉換第一個工作表):</label>
+            <input type="text" id="sheetNameInput" placeholder="例如: Sheet1"
+                style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px;">
+        </p>
+
+        <button onclick="processFile()">開始轉換並自動下載CSV檔</button>
+
+        <div id="message"></div>
+    </div>
+
+    <script>
+        /**
+         * 觸發檔案處理和轉換的函式
+         */
+        function processFile() {
+            const fileInput = document.getElementById('excelFile');
+            const sheetNameInput = document.getElementById('sheetNameInput');
+            const messageDiv = document.getElementById('message');
+            const file = fileInput.files[0];
+
+            // 清除舊訊息
+            messageDiv.style.display = 'none';
+
+            if (!file) {
+                showMessage('請選擇一個 Excel 檔案 (.xlsx 或 .xls)。', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    // 1. 讀取 Excel 檔案
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    // 2. 確定要轉換的工作表名稱
+                    let requestedSheetName = sheetNameInput.value.trim();
+                    let actualSheetName; // 實際使用的工作表名稱
+                    let worksheet;
+
+                    if (requestedSheetName) {
+                        worksheet = workbook.Sheets[requestedSheetName];
+                        if (!worksheet) {
+                            showMessage(`找不到名稱為 "${requestedSheetName}" 的工作表。`, 'error');
+                            return;
+                        }
+                        actualSheetName = requestedSheetName;
+                    } else {
+                        // 如果沒有輸入名稱，則使用第一個工作表
+                        actualSheetName = workbook.SheetNames[0];
+                        worksheet = workbook.Sheets[actualSheetName];
+                    }
+
+                    // 3. 命名邏輯：根據原檔名和工作表名稱組合
+                    const originalFileName = file.name;
+                    // 移除副檔名 (.xlsx/.xls)
+                    const baseFileName = originalFileName.substring(0, originalFileName.lastIndexOf('.')) || originalFileName;
+
+                    let outputFileName;
+                    if (requestedSheetName) {
+                        // 規則 2: 原檔名-工作表名.csv
+                        outputFileName = `${baseFileName}-${requestedSheetName}.csv`;
+                    } else {
+                        // 規則 1: 原檔名.csv
+                        outputFileName = `${baseFileName}.csv`;
+                    }
+
+
+                    // 4. 將工作表轉換為 CSV 格式的字串
+                    const csvString = XLSX.utils.sheet_to_csv(worksheet, {
+                        FS: ',', // 確保使用逗號作為分隔符
+                        forceQuotes: true // 強制對所有欄位加上引號，以避免中文/特殊符號產生錯誤
+                    });
+
+                    // 5. 下載 CSV 檔案，確保使用 UTF-8 編碼
+                    downloadCSV(csvString, outputFileName);
+
+                    showMessage(`成功轉換"${actualSheetName}" 為CSV檔案並下載於原檔相同目錄 (${outputFileName})！`, 'success');
+
+                } catch (error) {
+                    console.error("處理檔案時發生錯誤:", error);
+                    showMessage('處理檔案時發生錯誤，請檢查檔案格式是否正確。', 'error');
+                }
+            };
+
+            reader.onerror = function (e) {
+                console.error("檔案讀取錯誤:", e);
+                showMessage('檔案讀取失敗。', 'error');
+            };
+
+            // 以 ArrayBuffer 方式讀取檔案
+            reader.readAsArrayBuffer(file);
+        }
+
+        /**
+         * 建立 Blob 物件並觸發下載
+         * @param {string} csv - CSV 格式的字串
+         * @param {string} fileName - 下載的檔案名稱
+         */
+        function downloadCSV(csv, fileName) {
+            // 核心步驟：建立一個 Type 為 'text/csv;charset=utf-8' 的 Blob，確保 UTF-8 編碼
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", fileName);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } else {
+                alert("您的瀏覽器不支援自動下載，請手動複製內容。");
+            }
+        }
+
+        /**
+         * 顯示操作訊息
+         * @param {string} message - 顯示的訊息內容
+         * @param {string} type - 訊息類型 ('success' 或 'error')
+         */
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = message;
+            messageDiv.className = type; // 設置 CSS Class (error 或 success)
+            messageDiv.style.display = 'block';
+        }
+    </script>
+
+</body>
+
+</html>
