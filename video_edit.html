@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簡易影片剪輯工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 50px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 14px;
+            color: #999;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .video-container {
+            display: none;
+            margin-top: 30px;
+        }
+
+        video {
+            width: 100%;
+            border-radius: 10px;
+            background: #000;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            margin-top: 20px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .time-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .time-input-group {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .time-input-group label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .time-input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: monospace;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-mark {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-mark:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-clip {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-clip:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
+        }
+
+        .btn-remove {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-remove:hover {
+            background: #e53e3e;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 101, 101, 0.4);
+        }
+
+        .btn-reset {
+            background: #a0aec0;
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background: #718096;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status.info {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .progress-bar {
+            display: none;
+            margin-top: 15px;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            .time-inputs {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📹 簡易影片剪輯工具</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">🎬</div>
+            <div class="upload-text">點擊或拖曳影片至此處</div>
+            <div class="upload-hint">支援 MP4, WebM, MOV 等格式</div>
+            <input type="file" id="fileInput" accept="video/*">
+        </div>
+
+        <div class="video-container" id="videoContainer">
+            <video id="videoPlayer" controls></video>
+            
+            <div class="controls">
+                <div class="time-display">
+                    <span>當前時間: <strong id="currentTime">00:00.000</strong></span>
+                    <span>總時長: <strong id="duration">00:00.000</strong></span>
+                </div>
+
+                <div class="time-inputs">
+                    <div class="time-input-group">
+                        <label> 起點時間 》 (秒)</label>
+                        <input type="number" id="startTime" placeholder="0.000" step="0.001" min="0">
+                    </div>
+                    <div class="time-input-group">
+                        <label> 《 終點時間 (秒)</label>
+                        <input type="number" id="endTime" placeholder="0.000" step="0.001" min="0">
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-mark" id="markStart">標記起點 》</button>
+                    <button class="btn-mark" id="markEnd">《 標記終點</button>
+                    <button class="btn-clip" id="clipBtn">✂️ 擷取片段</button>
+                    <button class="btn-remove" id="removeBtn">🗑️ 移除片段</button>
+                    <button class="btn-reset" id="resetBtn">🔄 重新上傳</button>
+                </div>
+
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+
+                <div class="status info" id="status">請選擇起點和終點時間</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const videoContainer = document.getElementById('videoContainer');
+        const videoPlayer = document.getElementById('videoPlayer');
+        const currentTimeDisplay = document.getElementById('currentTime');
+        const durationDisplay = document.getElementById('duration');
+        const startTimeInput = document.getElementById('startTime');
+        const endTimeInput = document.getElementById('endTime');
+        const markStartBtn = document.getElementById('markStart');
+        const markEndBtn = document.getElementById('markEnd');
+        const clipBtn = document.getElementById('clipBtn');
+        const removeBtn = document.getElementById('removeBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const status = document.getElementById('status');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+
+        let videoFile = null;
+
+        // 格式化時間顯示
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = (seconds % 60).toFixed(3);
+            return `${String(mins).padStart(2, '0')}:${String(Math.floor(secs)).padStart(2, '0')}.${String(Math.round((secs % 1) * 1000)).padStart(3, '0')}`;
+        }
+
+        // 上傳區域事件
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // 處理上傳的影片
+        function handleFile(file) {
+            if (!file.type.startsWith('video/')) {
+                showStatus('請上傳影片檔案', 'error');
+                return;
+            }
+
+            videoFile = file;
+            const url = URL.createObjectURL(file);
+            videoPlayer.src = url;
+            
+            uploadArea.style.display = 'none';
+            videoContainer.style.display = 'block';
+            
+            showStatus('影片載入成功！請選擇起點和終點', 'success');
+        }
+
+        // 影片播放事件
+        videoPlayer.addEventListener('loadedmetadata', () => {
+            durationDisplay.textContent = formatTime(videoPlayer.duration);
+            endTimeInput.max = videoPlayer.duration;
+            startTimeInput.max = videoPlayer.duration;
+        });
+
+        videoPlayer.addEventListener('timeupdate', () => {
+            currentTimeDisplay.textContent = formatTime(videoPlayer.currentTime);
+        });
+
+        // 標記起點
+        markStartBtn.addEventListener('click', () => {
+            startTimeInput.value = videoPlayer.currentTime.toFixed(3);
+            showStatus('✓ 已標記起點：' + formatTime(videoPlayer.currentTime), 'success');
+        });
+
+        // 標記終點
+        markEndBtn.addEventListener('click', () => {
+            endTimeInput.value = videoPlayer.currentTime.toFixed(3);
+            showStatus('✓ 已標記終點：' + formatTime(videoPlayer.currentTime), 'success');
+        });
+
+        // 擷取片段
+        clipBtn.addEventListener('click', async () => {
+            const start = parseFloat(startTimeInput.value);
+            const end = parseFloat(endTimeInput.value);
+
+            if (!validateTimes(start, end)) return;
+
+            await processVideo('clip', start, end);
+        });
+
+        // 移除片段
+        removeBtn.addEventListener('click', async () => {
+            const start = parseFloat(startTimeInput.value);
+            const end = parseFloat(endTimeInput.value);
+
+            if (!validateTimes(start, end)) return;
+
+            await processVideo('remove', start, end);
+        });
+
+        // 驗證時間
+        function validateTimes(start, end) {
+            if (isNaN(start) || isNaN(end)) {
+                showStatus('請輸入有效的起點和終點時間', 'error');
+                return false;
+            }
+
+            if (start >= end) {
+                showStatus('起點時間必須小於終點時間', 'error');
+                return false;
+            }
+
+            if (start < 0 || end > videoPlayer.duration) {
+                showStatus('時間範圍超出影片長度', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        // 處理影片（使用 Canvas 和 MediaRecorder）
+        async function processVideo(mode, start, end) {
+            try {
+                clipBtn.disabled = true;
+                removeBtn.disabled = true;
+
+                showStatus('正在處理影片...', 'info');
+                progressBar.style.display = 'block';
+
+                // 創建隱藏的 video 元素用於處理
+                const sourceVideo = document.createElement('video');
+                sourceVideo.src = URL.createObjectURL(videoFile);
+                sourceVideo.muted = false;
+                
+                await new Promise((resolve) => {
+                    sourceVideo.onloadedmetadata = resolve;
+                });
+
+                const canvas = document.createElement('canvas');
+                canvas.width = sourceVideo.videoWidth || 1280;
+                canvas.height = sourceVideo.videoHeight || 720;
+                const ctx = canvas.getContext('2d');
+
+                const stream = canvas.captureStream(30); // 30 fps
+                
+                // 獲取音頻軌道
+                const audioContext = new AudioContext();
+                const source = audioContext.createMediaElementSource(sourceVideo);
+                const dest = audioContext.createMediaStreamDestination();
+                source.connect(dest);
+
+                // 合併視頻和音頻流
+                const audioTracks = dest.stream.getAudioTracks();
+                if (audioTracks.length > 0) {
+                    stream.addTrack(audioTracks[0]);
+                }
+
+                const mimeType = MediaRecorder.isTypeSupported('video/mp4') 
+                    ? 'video/mp4'
+                    : (MediaRecorder.isTypeSupported('video/webm;codecs=h264') 
+                        ? 'video/webm;codecs=h264'
+                        : 'video/webm');
+
+                const recorder = new MediaRecorder(stream, {
+                    mimeType: mimeType,
+                    videoBitsPerSecond: 5000000
+                });
+
+                const chunks = [];
+                recorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        chunks.push(e.data);
+                    }
+                };
+
+                recorder.onstop = () => {
+                    const fileExtension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+                    const blob = new Blob(chunks, { type: mimeType });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = mode === 'clip' ? 
+                        `擷取_${start.toFixed(1)}-${end.toFixed(1)}.${fileExtension}` : 
+                        `移除_${start.toFixed(1)}-${end.toFixed(1)}.${fileExtension}`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    
+                    progressBar.style.display = 'none';
+                    showStatus('✓ 下載完成！', 'success');
+                    clipBtn.disabled = false;
+                    removeBtn.disabled = false;
+                    
+                    audioContext.close();
+                };
+
+                if (mode === 'clip') {
+                    // 擷取模式
+                    sourceVideo.currentTime = start;
+                    await new Promise(resolve => {
+                        sourceVideo.onseeked = resolve;
+                    });
+
+                    recorder.start();
+                    sourceVideo.play();
+
+                    const duration = end - start;
+                    let recordingStartTime = Date.now();
+
+                    const drawFrame = () => {
+                        const elapsed = (Date.now() - recordingStartTime) / 1000;
+                        const progress = Math.min((elapsed / duration) * 100, 100);
+                        progressFill.style.width = progress + '%';
+
+                        if (sourceVideo.currentTime < end && !sourceVideo.paused) {
+                            ctx.drawImage(sourceVideo, 0, 0, canvas.width, canvas.height);
+                            requestAnimationFrame(drawFrame);
+                        } else {
+                            sourceVideo.pause();
+                            recorder.stop();
+                        }
+                    };
+
+                    drawFrame();
+
+                } else {
+                    // 移除模式 - 錄製兩段並合併
+                    const recordSegment = async (segmentStart, segmentEnd, isFirstSegment) => {
+                        return new Promise(async (resolve) => {
+                            sourceVideo.currentTime = segmentStart;
+                            await new Promise(r => { sourceVideo.onseeked = r; });
+
+                            if (isFirstSegment) {
+                                recorder.start();
+                            }
+                            
+                            sourceVideo.play();
+
+                            const drawFrame = () => {
+                                if (sourceVideo.currentTime < segmentEnd && !sourceVideo.paused) {
+                                    ctx.drawImage(sourceVideo, 0, 0, canvas.width, canvas.height);
+                                    requestAnimationFrame(drawFrame);
+                                } else {
+                                    sourceVideo.pause();
+                                    resolve();
+                                }
+                            };
+
+                            drawFrame();
+                        });
+                    };
+
+                    // 錄製第一段（0 到 start）
+                    if (start > 0) {
+                        await recordSegment(0, start, true);
+                        progressFill.style.width = '50%';
+                    }
+
+                    // 錄製第二段（end 到結尾）
+                    if (end < sourceVideo.duration) {
+                        await recordSegment(end, sourceVideo.duration, start === 0);
+                        progressFill.style.width = '100%';
+                    }
+
+                    recorder.stop();
+                }
+
+            } catch (error) {
+                console.error(error);
+                showStatus('❌ 處理失敗：' + error.message, 'error');
+                progressBar.style.display = 'none';
+                clipBtn.disabled = false;
+                removeBtn.disabled = false;
+            }
+        }
+
+        // 顯示狀態訊息
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+
+        // 重新上傳
+        resetBtn.addEventListener('click', () => {
+            videoPlayer.pause();
+            videoPlayer.src = '';
+            videoFile = null;
+            startTimeInput.value = '';
+            endTimeInput.value = '';
+            
+            videoContainer.style.display = 'none';
+            uploadArea.style.display = 'block';
+            
+            fileInput.value = '';
+        });
+    </script>
+</body>
+</html>
